@@ -12,43 +12,62 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+        sortDescriptors: [NSSortDescriptor(
+                            keyPath: \Parent.timestamp,
+                            ascending: true)
+        ],
+        animation: .default
+    )
+    private var parents: FetchedResults<Parent>
 
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
+            #if os(iOS)
+            iOSBody
+            #else
+            macOSBody
+            #endif
+        }
+    }
+    
+    #if os(iOS)
+    private var iOSBody: some View {
+        commonBody
+            .navigationBarItems(leading: EditButton())
+            .navigationBarItems(
+                leading: EditButton(),
+                trailing: Button(action: addItem, label: {
+                    Image(systemName: "plus")
+                }))
+            .navigationTitle("CloutKit CoreData")
+    }
+    #endif //iOS
+    
+    #if os(macOS)
+    private var macOSBody: some View {
+        commonBody
+            .toolbar(content: {
+                Button(action: addItem) {
+                    Label("Add Item", systemImage: "plus")
+                }
+            })
+    }
+    #endif //macOS
+    
+    private var commonBody: some View {
+        List {
+            ForEach(parents) { item in
+                NavigationLink(destination: DetailView(parent: item)) {
                     Text("Item at \(item.timestamp!, formatter: itemFormatter)")
                 }
-                .onDelete(perform: deleteItems)
             }
-            .toolbar(content: {
-                #if os(iOS)
-                ToolbarItem(placement: ToolbarItemPlacement.primaryAction) {
-                    Button(action: addItem, label: {
-                        EditButton()
-                    })
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    Button(action: addItem, label: {
-                        Label("Add Item", systemImage: "plus")
-                    })
-                }
-                #else
-                Button(action: addItem) {
-                    Label("Add Item", systemImage: "trash")
-                }
-                #endif
-            })
-            .navigationTitle("CloutKit CoreData")
+            .onDelete(perform: deleteparents)
         }
     }
 
     private func addItem() {
         withAnimation {
-            let newItem = Item(context: viewContext)
+            let newItem = Parent(context: viewContext)
             newItem.timestamp = Date()
 
             do {
@@ -62,9 +81,9 @@ struct ContentView: View {
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteparents(offsets: IndexSet) {
         withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
+            offsets.map { parents[$0] }.forEach(viewContext.delete)
 
             do {
                 try viewContext.save()
